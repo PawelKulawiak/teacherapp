@@ -1,5 +1,4 @@
 # teacherapp
-## CCBES Teacher Report
 
 A Quarto Shiny application that visualizes student well-being data based
 on the *Perceptions of Inclusion Questionnaire* (PIQ; Venetz et al., 2015).
