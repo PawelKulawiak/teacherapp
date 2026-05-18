@@ -1,0 +1,284 @@
+---
+title: "CCBES: Class Climate, Behavior & Emotion Survey"
+subtitle: "Teacher Report (1. Quintal)"
+format:
+  html:
+    link-external-newwindow: true
+    include-in-header:
+      text: |
+        <style>
+          a {
+          color: #BE1925;
+          }
+          a:hover {
+          color: #BE1925;
+          opacity: 1;
+          }
+          #title-block-header .title {
+            color: #BE1925;
+          }
+          #title-block-header .subtitle {
+            color: #BE1925;
+          }
+          body::before {
+            content: "";
+            display: block;
+            height: 6px;
+            background: #E74011;
+            width: 100%;
+          }
+          h2 {
+            padding-bottom: 0.4rem;
+            border-bottom: 2px solid #E74011;
+          }
+          .plot-container {
+          position: relative;
+          min-height: 500px;
+          background-image: url("images/loading.gif");
+          background-repeat: no-repeat;
+          background-position: top center;
+          }
+          /* Sobald die girafe drinsteckt, soll der Hintergrund weg */
+          .plot-container .girafe-container-std {
+          position: relative;
+          z-index: 1;
+          background: white;  /* deckt das GIF ab */
+          }
+        </style>
+server: shiny
+execute:
+  message: false
+  warning: false
+---
+
+```{r}
+library(tidyverse)
+library(patchwork)
+library(scales)
+library(bslib)
+library(htmltools)
+library(ggiraph)
+library(ggradar)
+library(googlesheets4)
+library(shinychat)
+library(ellmer)
+```
+
+\ 
+
+```{r}
+card(
+  full_screen = TRUE,
+  style = "border: 2px solid #E74011;",
+  card_header(
+    "Schüler:in",
+    style = "background-color: #E74011; color: white; font-weight: bold;"
+  ),
+  card_body(
+    layout_columns(
+      col_widths = c(4, 8),
+      tags$img(
+        src = "images/max.webp",
+        style = "width: 75%; border-radius: 8px; object-fit: cover;"
+      ),
+      tags$div(
+        tags$h4("Max Muster", style = "color: #BE1925; margin-top: 0;"),
+        tags$p(tags$strong("Schule: "), "Schulhaus am Park"),
+        tags$p(tags$strong("Klasse: "), "4b"),
+        tags$p(tags$strong("Alter: "), "9 Jahre"),
+        tags$p(tags$strong("Geschlecht: "), "Knabe")
+      )
+    )
+  )
+)
+```
+
+```{r}
+card(
+  full_screen = TRUE,
+  style = "border: 2px solid #E74011;",
+  card_header(
+    "Befragungsmethode",
+    style = "background-color: #E74011; color: white; font-weight: bold;"
+  ),
+  card_body(
+    tags$div(
+      tags$h4("Perceptions of Inclusion Questionnaire (PIQ)", style = "color: #BE1925; margin-top: 0;"),
+      tags$p("Venetz, M., Zurbriggen, C. L. A., Eckhart, M., Schwab, S., & Hessels, M. G. P. (2015). The Perceptions of Inclusion Questionnaire (PIQ).",
+        a("https://piqinfo.ch/", href = "https://piqinfo.ch/", target = "_blank")))
+  )
+)
+```
+
+\ 
+
+## Data-Literacy-Chatbot (DLC)
+
+::: {.column-margin}
+![](images/chatbot.webp)
+:::
+
+```{r}
+chat_ui(
+  id = "chat",
+  messages = "**Hallo! Ich bin DLC.** Ich helfe Dir bei der Interpretation der Daten. Frag mich z. B.: *Wie hat sich Max entwickelt?*"
+)
+```
+
+\ 
+
+## Wohlbefinden (Balkendiagramme)
+
+```{r}
+#girafeOutput("barplots")
+
+div(
+  class = "plot-container",
+  girafeOutput("barplots")
+)
+
+```
+
+## Wohlbefinden (Netzdiagramme)
+
+Erläuterungen zu Netzdiagrammen: <https://wissendenken.com/visuelles-denken/netzdiagramm/>
+
+```{r}
+#uiOutput("radar_ui")
+
+div(
+  class = "plot-container",
+  uiOutput("radar_ui")
+)
+
+```
+
+\ 
+
+---
+
+Software repository: <https://github.com/PawelKulawiak/teacherapp>
+
+License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+
+```{r}
+#| context: server
+
+library(tidyverse)
+library(patchwork)
+library(scales)
+library(ggiraph)
+library(ggradar)
+library(googlesheets4)
+library(shinychat)
+library(ellmer)
+
+# ---- Read data once per session ----
+gs4_deauth()
+LINK <- "https://docs.google.com/spreadsheets/......."
+DATA <- read_sheet(LINK)
+
+DATA$emotional <- DATA$item_1 + DATA$item_4 + DATA$item_7 + DATA$item_10
+DATA$sozial <- DATA$item_2 + DATA$item_5 + DATA$item_8 + DATA$item_11
+DATA$akademisch <- DATA$item_3 + DATA$item_6 + DATA$item_9 + DATA$item_12
+DATA$Woche <- 1:nrow(DATA)
+
+DATA <-
+  DATA %>%
+  select(emotional, sozial, akademisch, Woche)
+
+# ---- Bar plots ----
+output$barplots <- renderGirafe({
+  p1 <- ggplot(DATA, aes(x = Woche, y = emotional,
+                         tooltip = paste0("Wert: ", emotional, "<br>Woche ", Woche))) +
+    geom_col_interactive(fill = "#E74011") +
+    ylim(0, 16) + ylab(NULL) + ggtitle("emotional") +
+    scale_x_continuous(breaks = breaks_width(1)) +
+    theme_minimal()
+
+  p2 <- ggplot(DATA, aes(x = Woche, y = sozial,
+                         tooltip = paste0("Wert: ", sozial, "<br>Woche ", Woche))) +
+    geom_col_interactive(fill = "#E74011") +
+    ylim(0, 16) + ylab(NULL) + ggtitle("sozial") +
+    scale_x_continuous(breaks = breaks_width(1)) +
+    theme_minimal()
+
+  p3 <- ggplot(DATA, aes(x = Woche, y = akademisch,
+                         tooltip = paste0("Wert: ", akademisch, "<br>Woche ", Woche))) +
+    geom_col_interactive(fill = "#E74011") +
+    ylim(0, 16) + ylab(NULL) + ggtitle("akademisch") +
+    scale_x_continuous(breaks = breaks_width(1)) +
+    theme_minimal()
+
+  girafe(ggobj = p1 + p2 + p3)
+})
+
+# ---- Dynamic radar plots ----
+output$radar_ui <- renderUI({
+  tagList(
+    lapply(seq_len(nrow(DATA)), function(i) {
+      plotOutput(paste0("radar_", i), height = "450px")
+    })
+  )
+})
+
+observe({
+  lapply(seq_len(nrow(DATA)), function(i) {
+    output[[paste0("radar_", i)]] <- renderPlot({
+      radar_df <- DATA %>%
+        filter(Woche == i) %>%
+        mutate(Woche = paste("Woche", Woche)) %>%
+        select(Woche, emotional, sozial, akademisch)
+
+      ggradar(
+        radar_df,
+        grid.min = 4, grid.mid = 10, grid.max = 16,
+        values.radar = c("gering", "mittel", "hoch"),
+        group.colours = "#E74011",
+        group.line.width = 1, group.point.size = 3,
+        background.circle.colour = "gray90",
+        gridline.mid.colour = "grey70",
+        legend.position = "none"
+      ) +
+        labs(subtitle = paste("Woche", i))
+    })
+  })
+})
+
+# ---- Chatbot ----
+# Build system prompt with the actual data baked in
+data_table <- paste(capture.output(print(DATA)), collapse = "\n")
+
+system_prompt <- paste0(
+  "Du bist ein freundlicher KI-Assistent, der einer Lehrperson hilft, ",
+  "die Daten aus dem Perceptions of Inclusion Questionnaire (PIQ) zu interpretieren. ",
+  "Der Schüler heisst Max Muster (Klasse 4b, 9 Jahre, männlich). ",
+  "Die drei Dimensionen sind: emotional (emotionales Wohlbefinden), ",
+  "sozial (soziales Wohlbefinden), akademisch (akademisches Wohlbefinden). ",
+  "Die Werte können von 1 bis 16 reichen. Höhere Werte bedeuten höheres Wohlbefinden bzw. stärkere Ausprägung. ",
+  "Die Spalte 'Woche' zeigt die Messzeitpunkte.\n\n",
+  "Aktuelle Daten:\n", data_table, "\n\n",
+   "Für die Lehrpersonen sind die Daten als Balkendiagramme dargestellt. Für jede Dimension ein Diagramm. Ein Balken pro Woche. Somit ist die zeitliche Entwicklung sichtbar.",
+  "Netzdiagramme (Radar-Charts) sind auch dargestellt. Ein Netzdiagramm pro Woche. Somit kann auch betrachtet werden, ob Dimensionen gemeinsame Muster haben und ob Reduktion/Anstieg von Dimension/en vor/nach Reduktion/Anstieg von Dimension/en erfolgen. Beschreibe also das longitudinal-multivariate Muster der Dimensionen.",
+  "Beschreibe immer die Entwicklungsunterschiede zwischen den Dimensionen und beschreibe dabei das longitudinal-multivariate Muster der Dimensionen. Mach dabei eine vorsichtige pädagogische Interpretation. Beziehe dich auch immer explizit auf die Netzdiagramme.",
+  "Tue so, als würdest du die Diagramme auch sehen (Balken und Netz). Wenn du gefragt wirst, ob du die Diagramme sehen kannst, dann sag JA.",
+  "Antworte auf Deutsch (Schweiz), prägnant und in einfacher Sprache. ",
+  "Hebe Veränderungen über die Wochen hervor, wenn relevant.",
+  "Wenn du nach konkreten Werten gefragt wirst, beziehe dich exakt auf die obigen Daten. ",
+  "Gib keine medizinischen oder diagnostischen Aussagen ab, auch keine pädagogischen Empfehlungen."
+)
+
+
+
+
+# One chat object per session (preserves multi-turn conversation history)
+chat <- ellmer::chat_openai(
+  system_prompt = system_prompt,
+  model = "gpt-5.5"
+)
+
+observeEvent(input$chat_user_input, {
+  stream <- chat$stream_async(input$chat_user_input)
+  chat_append("chat", stream)
+})
+```
